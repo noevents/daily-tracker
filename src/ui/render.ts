@@ -85,12 +85,15 @@ export function editForm(value: string, multiline: boolean): string {
 export function appShell(): string {
   return `
     <button id="log-toggle" class="log-toggle" type="button">☰ Log</button>
+    <button id="mode-toggle" class="mode-toggle" type="button"></button>
     <aside class="log-panel" id="log-panel">
       <h2>Today</h2>
       <ul id="log-list"></ul>
     </aside>
     <section class="timer-panel">
+      <div id="title-display" class="timer-title"></div>
       <div id="display" class="display">00:00</div>
+      <div id="hold-bar" class="hold-bar"><span></span></div>
       <input id="title" class="title-input" type="text"
              placeholder="What are you working on?" autocomplete="off" />
       <div class="target-row">
@@ -99,6 +102,9 @@ export function appShell(): string {
           <button data-delta="-5" type="button">−5</button>
         </div>
         <div id="target" class="target">25 min</div>
+        <div id="wheel" class="wheel" aria-hidden="true">
+          <div id="wheel-track" class="wheel-track"></div>
+        </div>
         <div class="adjusts adjusts--right">
           <button data-delta="5" type="button">+5</button>
           <button data-delta="10" type="button">+10</button>
