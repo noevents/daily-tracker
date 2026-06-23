@@ -90,17 +90,20 @@ export function appShell(): string {
       <ul id="log-list"></ul>
     </aside>
     <section class="timer-panel">
+      <div id="display" class="display">00:00</div>
       <input id="title" class="title-input" type="text"
              placeholder="What are you working on?" autocomplete="off" />
-      <div id="display" class="display">00:00</div>
-      <div id="target" class="target">Target: 25 min</div>
-      <div class="adjusts">
-        <button data-delta="-10" type="button">−10</button>
-        <button data-delta="-5" type="button">−5</button>
-        <button data-delta="5" type="button">+5</button>
-        <button data-delta="10" type="button">+10</button>
+      <div class="target-row">
+        <div class="adjusts adjusts--left">
+          <button data-delta="-10" type="button">−10</button>
+          <button data-delta="-5" type="button">−5</button>
+        </div>
+        <div id="target" class="target">25 min</div>
+        <div class="adjusts adjusts--right">
+          <button data-delta="5" type="button">+5</button>
+          <button data-delta="10" type="button">+10</button>
+        </div>
       </div>
       <button id="toggle" class="toggle" type="button">Start</button>
-      <button id="test-notif" class="ghost" type="button">Test notification</button>
     </section>`;
 }
