@@ -1,0 +1,367 @@
+:root {
+  --bg: #14161a;
+  --panel: #1c1f26;
+  --line: #2a2e38;
+  --text: #e6e8ec;
+  --muted: #8b919e;
+  --accent: #5b9dff;
+  --untracked: #3a2a2a;
+  --untracked-line: #6b4a4a;
+  --untracked-text: #e0a07a;
+  --overtime: #ff8a5b;
+  --live: #4ad07a;
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+}
+
+#app {
+  display: grid;
+  grid-template-columns: 340px 1fr;
+  min-height: 100vh;
+}
+
+/* Log toggle is only used on mobile/landscape. */
+.log-toggle {
+  display: none;
+  position: fixed;
+  top: 12px;
+  left: 12px;
+  z-index: 20;
+  background: var(--panel);
+  color: var(--text);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.log-panel {
+  border-right: 1px solid var(--line);
+  padding: 16px;
+  overflow-y: auto;
+  max-height: 100vh;
+}
+
+.log-panel h2 {
+  margin: 0 0 12px;
+  font-size: 14px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+}
+
+#log-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.entry {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 10px 12px;
+}
+
+.entry--untracked {
+  background: var(--untracked);
+  border-color: var(--untracked-line);
+}
+
+.entry--open {
+  border-color: var(--live);
+}
+
+.entry-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  align-items: baseline;
+}
+
+.entry-title {
+  font-weight: 600;
+  min-width: 0;
+}
+
+/* Clickable title behaves like text but opens an inline editor. */
+.entry-title .field-edit {
+  background: none;
+  border: none;
+  color: inherit;
+  font: inherit;
+  font-weight: 600;
+  padding: 0;
+  cursor: pointer;
+  text-align: left;
+}
+
+.entry-title .field-edit:hover {
+  color: var(--accent);
+}
+
+.entry-time {
+  color: var(--muted);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.live {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  margin-right: 6px;
+  border-radius: 50%;
+  background: var(--live);
+  animation: pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+
+.badge {
+  font-size: 10px;
+  text-transform: uppercase;
+  color: var(--untracked-line);
+  border: 1px solid var(--untracked-line);
+  border-radius: 4px;
+  padding: 1px 4px;
+}
+
+.entry-desc {
+  margin: 6px 0 0;
+  color: var(--muted);
+  font-size: 13px;
+  white-space: pre-wrap;
+}
+
+.entry-edit {
+  margin-top: 6px;
+  background: none;
+  border: none;
+  color: var(--accent);
+  cursor: pointer;
+  padding: 0;
+  font-size: 12px;
+}
+
+.edit-form {
+  margin-top: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.edit-input {
+  width: 100%;
+  background: var(--bg);
+  color: var(--text);
+  border: 1px solid var(--accent);
+  border-radius: 6px;
+  padding: 8px;
+  font: inherit;
+  resize: vertical;
+}
+
+.edit-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.log-empty {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.timer-panel {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  padding: 24px;
+}
+
+.title-input {
+  width: min(100%, 420px);
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--text);
+  font-size: 16px;
+  padding: 12px 14px;
+  text-align: center;
+}
+
+.title-input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.display {
+  font-size: 72px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.display.overtime {
+  color: var(--overtime);
+}
+
+.display.untracked {
+  color: var(--untracked-text);
+}
+
+.target {
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.adjusts {
+  display: flex;
+  gap: 8px;
+}
+
+.adjusts button {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--text);
+  font-size: 15px;
+  padding: 10px 16px;
+  cursor: pointer;
+  min-width: 56px;
+}
+
+.adjusts button:hover {
+  border-color: var(--accent);
+}
+
+.toggle {
+  background: var(--accent);
+  border: none;
+  border-radius: 10px;
+  color: #06101f;
+  font-size: 18px;
+  font-weight: 700;
+  padding: 14px 48px;
+  cursor: pointer;
+}
+
+.toggle.running {
+  background: var(--overtime);
+}
+
+.ghost {
+  background: none;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--muted);
+  padding: 8px 14px;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.ghost:hover {
+  border-color: var(--accent);
+  color: var(--text);
+}
+
+/*
+ * Mobile + landscape phone: hide the log by default and make the timer the
+ * full-screen focus. The log slides in as an overlay drawer via the toggle.
+ */
+@media (max-width: 900px), (orientation: landscape) and (max-height: 600px) {
+  #app {
+    display: block;
+  }
+  .log-toggle {
+    display: block;
+  }
+  .timer-panel {
+    min-height: 100vh;
+    gap: 14px;
+  }
+  .log-panel {
+    position: fixed;
+    top: 0;
+    left: 0;
+    height: 100vh;
+    width: min(85vw, 340px);
+    max-height: none;
+    background: var(--bg);
+    border-right: 1px solid var(--line);
+    transform: translateX(-100%);
+    transition: transform 0.2s ease;
+    z-index: 15;
+    padding-top: 56px;
+  }
+  .log-panel.open {
+    transform: none;
+    box-shadow: 0 0 40px rgba(0, 0, 0, 0.6);
+  }
+}
+
+/*
+ * Landscape phone beside you (e.g. iPhone X, 812×375): make the timer fill the
+ * whole screen with large, easy-to-hit controls. Sizes scale with the viewport
+ * so the clock stays as big as possible without overflowing.
+ */
+@media (orientation: landscape) and (max-height: 600px) {
+  .timer-panel {
+    height: 100vh;
+    width: 100vw;
+    justify-content: space-evenly;
+    gap: 0;
+    padding: max(12px, env(safe-area-inset-top))
+      max(16px, env(safe-area-inset-right))
+      max(12px, env(safe-area-inset-bottom))
+      max(56px, env(safe-area-inset-left));
+  }
+  .title-input {
+    width: min(90vw, 600px);
+    font-size: clamp(16px, 4.5vh, 26px);
+    padding: clamp(8px, 2vh, 16px);
+  }
+  .display {
+    font-size: min(34vw, 46vh);
+    line-height: 1;
+  }
+  .target {
+    font-size: clamp(13px, 3vh, 20px);
+  }
+  .adjusts {
+    gap: clamp(8px, 2vw, 20px);
+  }
+  .adjusts button {
+    font-size: clamp(16px, 4vh, 24px);
+    padding: clamp(10px, 3vh, 20px) clamp(14px, 3vw, 32px);
+    min-width: clamp(64px, 12vw, 110px);
+  }
+  .toggle {
+    font-size: clamp(18px, 4.5vh, 28px);
+    padding: clamp(12px, 3vh, 22px) clamp(48px, 12vw, 120px);
+  }
+  /* Keep the focus on the timer; the test button stays small and tucked away. */
+  #test-notif {
+    position: fixed;
+    top: 12px;
+    right: 12px;
+  }
+}
