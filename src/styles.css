@@ -57,6 +57,22 @@ body {
   cursor: pointer;
 }
 
+/* Mode toggle: only meaningful on touch devices (see @media pointer: coarse). */
+.mode-toggle {
+  display: none;
+  position: fixed;
+  top: 12px;
+  right: 12px;
+  z-index: 20;
+  background: var(--panel);
+  color: var(--muted);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-size: 13px;
+  cursor: pointer;
+}
+
 .log-panel {
   border-right: 1px solid var(--line);
   padding: 16px;
@@ -234,6 +250,28 @@ body {
   border-color: var(--accent);
 }
 
+/* Static title shown above the clock in gesture mode. Hidden otherwise. */
+.timer-title {
+  display: none;
+  max-width: var(--col-w);
+  font-size: 14px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+  text-align: center;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.timer-title.empty {
+  opacity: 0.5;
+  font-style: italic;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
 .display {
   font-size: clamp(64px, 16vw, 152px);
   font-variant-numeric: tabular-nums;
@@ -252,8 +290,9 @@ body {
 
 .target {
   color: var(--muted);
-  font-size: 22px;
+  font-size: 44px;
   font-weight: 600;
+  transition: opacity 0.18s ease;
 }
 
 .adjusts {
@@ -308,6 +347,144 @@ body {
 .ghost:hover {
   border-color: var(--accent);
   color: var(--text);
+}
+
+/*
+ * Gesture mode: the timer is driven by two-finger gestures, so the on-screen
+ * buttons and inline title input give way to a static title and a title sheet
+ * that rolls down from the top edge on a two-finger swipe down.
+ */
+body.gesture-mode .timer-title {
+  display: block;
+}
+body.gesture-mode .target-row .adjusts,
+body.gesture-mode .toggle {
+  display: none;
+}
+body.gesture-mode .target-row {
+  justify-content: center;
+  position: relative;
+}
+/* Collapse the loose, spread-out spacing into a compact, centered stack so the
+   timer fits a short landscape viewport without scrolling. */
+body.gesture-mode .timer-panel {
+  justify-content: center;
+  gap: clamp(6px, 1.6vh, 14px);
+}
+body.gesture-mode .timer-panel,
+body.gesture-mode .timer-panel * {
+  /* The timer panel is the gesture surface: no scroll, pinch, or double-tap
+     zoom should start here. Set on descendants too so the target applies. */
+  touch-action: none;
+}
+
+/* Press-and-hold progress, shown only in gesture mode. */
+.hold-bar {
+  display: none;
+}
+body.gesture-mode .hold-bar {
+  display: block;
+  width: var(--col-w);
+  height: 4px;
+  border-radius: 999px;
+  background: var(--line);
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+body.gesture-mode .hold-bar.active {
+  opacity: 1;
+}
+.hold-bar span {
+  display: block;
+  height: 100%;
+  width: 100%;
+  border-radius: inherit;
+  background: var(--accent);
+  transform: scaleX(var(--p, 0));
+  transform-origin: left;
+}
+
+/* The title input becomes a sheet anchored to the top, hidden until pulled. */
+body.gesture-mode .title-input {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  width: auto;
+  z-index: 18;
+  border: none;
+  border-bottom: 2px solid var(--accent);
+  border-radius: 0;
+  padding: max(18px, env(safe-area-inset-top)) 16px 16px;
+  transform: translateY(-110%);
+  transition: transform 0.22s ease;
+  box-shadow: 0 8px 40px rgba(0, 0, 0, 0.5);
+}
+body.gesture-mode.title-open .title-input {
+  transform: none;
+}
+
+/*
+ * Scrub wheel: a horizontal ribbon of minute values that slides over the
+ * target while scrubbing, then fades away. Absolutely positioned over the
+ * (still-present) target, so showing it never shifts the layout.
+ */
+.wheel {
+  display: none;
+}
+body.gesture-mode .wheel {
+  display: block;
+  position: absolute;
+  inset: 0;
+  margin: auto 0;
+  height: 1.2em;
+  font-size: 44px;
+  overflow: hidden;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.18s ease;
+  -webkit-mask: linear-gradient(90deg, transparent, #000 32%, #000 68%, transparent);
+  mask: linear-gradient(90deg, transparent, #000 32%, #000 68%, transparent);
+}
+.wheel-track {
+  display: flex;
+  align-items: center;
+  height: 100%;
+  transition: transform 0.13s ease-out;
+  will-change: transform;
+}
+.wheel-num {
+  flex: 0 0 96px;
+  text-align: center;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--muted);
+  opacity: 0.35;
+  transition: opacity 0.13s ease, color 0.13s ease;
+}
+.wheel-num.current {
+  color: var(--accent);
+  opacity: 1;
+}
+/* While scrubbing, swap the static target for the moving wheel. */
+body.gesture-mode.scrubbing .target {
+  opacity: 0;
+}
+body.gesture-mode.scrubbing .wheel {
+  opacity: 1;
+}
+
+.display.tapped {
+  animation: tap-pulse 0.3s ease;
+}
+@keyframes tap-pulse {
+  50% { transform: scale(1.06); }
+}
+
+@media (pointer: coarse) {
+  .mode-toggle {
+    display: block;
+  }
 }
 
 /*
@@ -372,8 +549,9 @@ body {
     font-size: min(22vw, 38vh);
     line-height: 1;
   }
-  .target {
-    font-size: clamp(16px, 3.6vh, 24px);
+  .target,
+  body.gesture-mode .wheel {
+    font-size: clamp(32px, 7.2vh, 48px);
   }
   .adjusts {
     gap: clamp(6px, 1.6vw, 14px);
