@@ -13,7 +13,7 @@
   "kv_namespaces": [
     {
       "binding": "TRACKER_KV",
-      "id": "REPLACE_WITH_KV_NAMESPACE_ID"
+      "id": "1eacf10f389b433e92e153bcaad8dc04"
     }
   ]
   // Set the auth secret with: wrangler secret put AUTH_TOKEN
