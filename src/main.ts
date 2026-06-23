@@ -68,9 +68,9 @@ function renderControls() {
   $toggle.textContent = tracking ? "Stop" : "Start";
   $toggle.classList.toggle("running", tracking);
   if (tracking && open) {
-    $target.textContent = `Target: ${open.targetMin} min`;
+    $target.textContent = `${open.targetMin} min`;
   } else {
-    $target.textContent = `Next target: ${nextTargetMin} min`;
+    $target.textContent = `${nextTargetMin} min`;
   }
 }
 

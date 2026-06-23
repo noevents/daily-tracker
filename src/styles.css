@@ -17,10 +17,22 @@
   box-sizing: border-box;
 }
 
+button {
+  touch-action: manipulation;
+}
+
+input,
+textarea {
+  user-select: text;
+  -webkit-user-select: text;
+}
+
 body {
   margin: 0;
   background: var(--bg);
   color: var(--text);
+  user-select: none;
+  -webkit-user-select: none;
 }
 
 #app {
@@ -189,6 +201,7 @@ body {
 }
 
 .timer-panel {
+  --col-w: min(100%, 420px);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -197,8 +210,16 @@ body {
   padding: 24px;
 }
 
+.target-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: clamp(8px, 4vw, 28px);
+  width: var(--col-w);
+}
+
 .title-input {
-  width: min(100%, 420px);
+  width: var(--col-w);
   background: var(--panel);
   border: 1px solid var(--line);
   border-radius: 8px;
@@ -214,10 +235,11 @@ body {
 }
 
 .display {
-  font-size: 72px;
+  font-size: clamp(64px, 16vw, 152px);
   font-variant-numeric: tabular-nums;
   font-weight: 700;
   letter-spacing: 0.02em;
+  line-height: 1;
 }
 
 .display.overtime {
@@ -230,12 +252,14 @@ body {
 
 .target {
   color: var(--muted);
-  font-size: 14px;
+  font-size: 22px;
+  font-weight: 600;
 }
 
 .adjusts {
   display: flex;
-  gap: 8px;
+  gap: clamp(4px, 1.5vw, 8px);
+  flex: none;
 }
 
 .adjusts button {
@@ -244,9 +268,9 @@ body {
   border-radius: 8px;
   color: var(--text);
   font-size: 15px;
-  padding: 10px 16px;
+  padding: 10px clamp(8px, 3vw, 16px);
   cursor: pointer;
-  min-width: 56px;
+  min-width: clamp(44px, 12vw, 56px);
 }
 
 .adjusts button:hover {
@@ -254,14 +278,17 @@ body {
 }
 
 .toggle {
+  width: var(--col-w);
   background: var(--accent);
   border: none;
   border-radius: 10px;
   color: #06101f;
   font-size: 18px;
   font-weight: 700;
-  padding: 14px 48px;
+  padding: 14px 0;
   cursor: pointer;
+  /* Keep clear air around Start so an adjust-button tap can't land here. */
+  margin-top: 8px;
 }
 
 .toggle.running {
@@ -328,35 +355,40 @@ body {
     height: 100vh;
     width: 100vw;
     justify-content: space-evenly;
-    gap: 0;
+    gap: clamp(6px, 1.5vh, 14px);
     padding: max(12px, env(safe-area-inset-top))
       max(16px, env(safe-area-inset-right))
       max(12px, env(safe-area-inset-bottom))
       max(56px, env(safe-area-inset-left));
   }
+  .target-row {
+    gap: clamp(10px, 3vw, 28px);
+  }
   .title-input {
-    width: min(90vw, 600px);
-    font-size: clamp(16px, 4.5vh, 26px);
-    padding: clamp(8px, 2vh, 16px);
+    font-size: clamp(14px, 3.2vh, 20px);
+    padding: clamp(6px, 1.6vh, 12px);
   }
   .display {
-    font-size: min(34vw, 46vh);
+    font-size: min(22vw, 38vh);
     line-height: 1;
   }
   .target {
-    font-size: clamp(13px, 3vh, 20px);
+    font-size: clamp(16px, 3.6vh, 24px);
   }
   .adjusts {
-    gap: clamp(8px, 2vw, 20px);
+    gap: clamp(6px, 1.6vw, 14px);
   }
   .adjusts button {
-    font-size: clamp(16px, 4vh, 24px);
-    padding: clamp(10px, 3vh, 20px) clamp(14px, 3vw, 32px);
-    min-width: clamp(64px, 12vw, 110px);
+    font-size: clamp(14px, 3.4vh, 20px);
+    padding: clamp(8px, 2.4vh, 16px) clamp(10px, 2.2vw, 22px);
+    min-width: clamp(48px, 9vw, 84px);
   }
+  /* Start sits alone on its own row, far from the adjust buttons, so a
+     thumb reaching for −/+ near the screen edges can't clip it by accident. */
   .toggle {
     font-size: clamp(18px, 4.5vh, 28px);
-    padding: clamp(12px, 3vh, 22px) clamp(48px, 12vw, 120px);
+    padding: clamp(12px, 3vh, 22px) 0;
+    margin-top: clamp(8px, 2vh, 18px);
   }
   /* Keep the focus on the timer; the test button stays small and tucked away. */
   #test-notif {
