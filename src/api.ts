@@ -84,3 +84,43 @@ export async function saveDay(
   writeCache(date, entries, version);
   return version;
 }
+
+const RECENTS_CACHE_KEY = "dt_recents";
+
+/** Read the cached recent titles (instant load / offline). */
+export function readCachedRecents(): string[] {
+  const raw = localStorage.getItem(RECENTS_CACHE_KEY);
+  if (!raw) return [];
+  try {
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? (parsed as string[]) : [];
+  } catch {
+    return [];
+  }
+}
+
+function writeRecentsCache(titles: string[]): void {
+  localStorage.setItem(RECENTS_CACHE_KEY, JSON.stringify(titles));
+}
+
+/** Fetch the user's recent task titles from the server. */
+export async function fetchRecents(): Promise<string[]> {
+  const res = await fetch(`/api/recents`, { headers: authHeaders() });
+  if (!res.ok) throw new Error(`recents fetch failed: ${res.status}`);
+  const { titles } = (await res.json()) as { titles: string[] };
+  writeRecentsCache(titles);
+  return titles;
+}
+
+/** Record a title as recently used; returns the updated list. */
+export async function pushRecent(title: string): Promise<string[]> {
+  const res = await fetch(`/api/recents`, {
+    method: "POST",
+    headers: authHeaders(),
+    body: JSON.stringify({ title }),
+  });
+  if (!res.ok) throw new Error(`recents push failed: ${res.status}`);
+  const { titles } = (await res.json()) as { titles: string[] };
+  writeRecentsCache(titles);
+  return titles;
+}

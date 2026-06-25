@@ -72,6 +72,67 @@ export function startTracked(
 }
 
 /**
+ * Close any open segment and begin an open tracked session that continues a
+ * title's running total: the timer counts up from `baseMs` already-logged time.
+ */
+export function continueTracked(
+  entries: Entry[],
+  now: number,
+  title: string,
+  targetMin: number,
+  baseMs: number,
+): Entry {
+  const e = startTracked(entries, now, title, targetMin);
+  e.baseMs = baseMs;
+  return e;
+}
+
+/** Total logged ms for tracked entries whose title matches, open counted to `now`. */
+export function sumLoggedMs(entries: Entry[], title: string, now: number): number {
+  const t = title.trim();
+  if (!t) return 0;
+  return entries
+    .filter((e) => e.kind === "tracked" && e.title === t)
+    .reduce((sum, e) => sum + Math.max(0, resolveEnd(e, now) - e.start), 0);
+}
+
+/** An untracked gap with no user-supplied title or note — safe to merge. */
+function isPlainUntracked(e: Entry): boolean {
+  return (
+    e.kind === "untracked" &&
+    !e.description &&
+    (e.title === "Untracked" || !e.title)
+  );
+}
+
+/**
+ * Merge runs of contiguous plain-untracked entries into one block. A refresh or
+ * a second device each begins its own untracked segment, so the timeline
+ * accumulates back-to-back gaps; this collapses them (earliest id and start,
+ * latest end) so untracked time reads as a single span.
+ */
+export function coalesceUntracked(entries: Entry[], now: number): Entry[] {
+  const sorted = [...entries].sort((a, b) => a.start - b.start);
+  const out: Entry[] = [];
+  for (const e of sorted) {
+    const prev = out[out.length - 1];
+    if (
+      prev &&
+      isPlainUntracked(prev) &&
+      isPlainUntracked(e) &&
+      prev.end !== null &&
+      prev.end >= e.start
+    ) {
+      prev.end = e.end === null ? null : Math.max(prev.end, e.end);
+      prev.updated = now;
+    } else {
+      out.push(e);
+    }
+  }
+  return out;
+}
+
+/**
  * Merge two entry sets by id, newest `updated` wins. Used to reconcile a
  * locally-edited day with the server copy without clobbering either side.
  */
@@ -138,8 +199,10 @@ export function reconcile(entries: Entry[], now: number): Reconciliation {
     return { resume: false, changed: true };
   }
   if (open.kind === "tracked") {
-    const tEnd = targetEndMs(open.start, open.targetMin);
-    if (now >= tEnd) {
+    const tEnd = targetEndMs(open.start, open.targetMin, open.baseMs ?? 0);
+    // Finalize only when the target boundary lies within the segment's run; a
+    // continue that began already past target keeps running as overtime.
+    if (tEnd > open.start && now >= tEnd) {
       open.end = tEnd;
       open.updated = now;
       startUntracked(entries, tEnd);

@@ -37,7 +37,7 @@ body {
 
 #app {
   display: grid;
-  grid-template-columns: 340px 1fr;
+  grid-template-columns: 340px minmax(0, 1fr) 220px;
   min-height: 100vh;
 }
 
@@ -80,12 +80,57 @@ body {
   max-height: 100vh;
 }
 
-.log-panel h2 {
+.log-panel h2,
+.tasks-panel h2 {
   margin: 0 0 12px;
   font-size: 14px;
   text-transform: uppercase;
   letter-spacing: 0.08em;
   color: var(--muted);
+}
+
+/* Right column: quick-pick list of recent task titles. */
+.tasks-panel {
+  border-left: 1px solid var(--line);
+  padding: 16px;
+  overflow-y: auto;
+  max-height: 100vh;
+}
+
+.task-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.task-pick {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--text);
+  font: inherit;
+  font-size: 14px;
+  text-align: left;
+  padding: 10px 12px;
+  cursor: pointer;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.task-pick:hover {
+  border-color: var(--accent);
+}
+
+.task-pick--pinned {
+  color: var(--muted);
+  font-weight: 600;
 }
 
 #log-list {
@@ -160,15 +205,6 @@ body {
 @keyframes pulse {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.3; }
-}
-
-.badge {
-  font-size: 10px;
-  text-transform: uppercase;
-  color: var(--untracked-line);
-  border: 1px solid var(--untracked-line);
-  border-radius: 4px;
-  padding: 1px 4px;
 }
 
 .entry-desc {
@@ -316,8 +352,17 @@ body {
   border-color: var(--accent);
 }
 
-.toggle {
+/* Start sits beside Continue; the row owns width + top spacing. */
+.action-row {
+  display: flex;
+  gap: 10px;
   width: var(--col-w);
+  /* Keep clear air around the actions so an adjust-button tap can't land here. */
+  margin-top: 8px;
+}
+
+.toggle {
+  flex: 1;
   background: var(--accent);
   border: none;
   border-radius: 10px;
@@ -326,12 +371,22 @@ body {
   font-weight: 700;
   padding: 14px 0;
   cursor: pointer;
-  /* Keep clear air around Start so an adjust-button tap can't land here. */
-  margin-top: 8px;
 }
 
 .toggle.running {
   background: var(--overtime);
+}
+
+/* Continue is the secondary action: outlined, not filled. */
+.continue {
+  flex: 0 1 40%;
+  background: var(--panel);
+  color: var(--text);
+  border: 1px solid var(--line);
+}
+
+.continue:hover {
+  border-color: var(--accent);
 }
 
 .ghost {
@@ -359,6 +414,10 @@ body.gesture-mode .timer-title {
 }
 body.gesture-mode .target-row .adjusts,
 body.gesture-mode .toggle {
+  display: none;
+}
+/* Gesture mode is a minimal full-screen focus; the task list steps aside. */
+body.gesture-mode .tasks-panel {
   display: none;
 }
 body.gesture-mode .target-row {
@@ -501,6 +560,8 @@ body.gesture-mode.scrubbing .wheel {
   .timer-panel {
     min-height: 100vh;
     gap: 14px;
+    /* Leave room for the fixed task strip pinned to the bottom edge. */
+    padding-bottom: 76px;
   }
   .log-panel {
     position: fixed;
@@ -519,6 +580,34 @@ body.gesture-mode.scrubbing .wheel {
   .log-panel.open {
     transform: none;
     box-shadow: 0 0 40px rgba(0, 0, 0, 0.6);
+  }
+  /* Task list becomes a horizontal, scrollable chip strip along the bottom. */
+  .tasks-panel {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 14;
+    max-height: none;
+    border-left: none;
+    border-top: 1px solid var(--line);
+    background: var(--bg);
+    padding: 8px 12px max(8px, env(safe-area-inset-bottom));
+    overflow: visible;
+  }
+  .tasks-panel h2 {
+    display: none;
+  }
+  .task-list {
+    flex-direction: row;
+    overflow-x: auto;
+    gap: 8px;
+    -webkit-overflow-scrolling: touch;
+  }
+  .task-pick {
+    width: auto;
+    flex: 0 0 auto;
+    max-width: 150px;
   }
 }
 
@@ -561,12 +650,14 @@ body.gesture-mode.scrubbing .wheel {
     padding: clamp(8px, 2.4vh, 16px) clamp(10px, 2.2vw, 22px);
     min-width: clamp(48px, 9vw, 84px);
   }
-  /* Start sits alone on its own row, far from the adjust buttons, so a
-     thumb reaching for −/+ near the screen edges can't clip it by accident. */
+  /* The action row sits clear of the adjust buttons, so a thumb reaching for
+     −/+ near the screen edges can't clip Start/Continue by accident. */
+  .action-row {
+    margin-top: clamp(8px, 2vh, 18px);
+  }
   .toggle {
     font-size: clamp(18px, 4.5vh, 28px);
     padding: clamp(12px, 3vh, 22px) 0;
-    margin-top: clamp(8px, 2vh, 18px);
   }
   /* Keep the focus on the timer; the test button stays small and tucked away. */
   #test-notif {

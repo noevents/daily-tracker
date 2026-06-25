@@ -18,6 +18,13 @@ describe("timer utils", () => {
     expect(targetReached(0, 25, 30 * 60_000)).toBe(true);
   });
 
+  it("offsets the target end by carried-in base time", () => {
+    // 25-min target, 10 min already logged → target reached 15 min after start.
+    expect(targetEndMs(0, 25, 10 * 60_000)).toBe(15 * 60_000);
+    expect(targetReached(0, 25, 14 * 60_000, 10 * 60_000)).toBe(false);
+    expect(targetReached(0, 25, 15 * 60_000, 10 * 60_000)).toBe(true);
+  });
+
   it("clamps target adjustments to the minimum", () => {
     expect(adjustTarget(25, 5)).toBe(30);
     expect(adjustTarget(25, -10)).toBe(15);

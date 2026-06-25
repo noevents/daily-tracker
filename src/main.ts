@@ -11,6 +11,9 @@ import {
   openSegment,
   startUntracked,
   startTracked,
+  continueTracked,
+  sumLoggedMs,
+  coalesceUntracked,
   reconcile,
   mergeEntries,
   normalizeOpen,
@@ -22,11 +25,14 @@ import {
   saveDay,
   readCache,
   readCachedVersion,
+  fetchRecents,
+  pushRecent,
+  readCachedRecents,
   getToken,
   setToken,
   ConflictError,
 } from "./api";
-import { appShell, renderLog, editForm } from "./ui/render";
+import { appShell, renderLog, renderTasks, editForm } from "./ui/render";
 import { attachGestures } from "./gestures";
 
 if ("serviceWorker" in navigator) {
@@ -49,6 +55,8 @@ for (const t of ["gesturestart", "gesturechange", "gestureend"]) {
 
 const date = dateKey();
 let entries: Entry[] = [];
+// Recent task titles for the quick-pick list (most-recent-first).
+let recents: string[] = [];
 // Version of the day doc we last synced with the server (optimistic concurrency).
 let version = 0;
 // True when a write failed and local changes still need pushing.
@@ -67,6 +75,8 @@ const $title = document.getElementById("title") as HTMLInputElement;
 const $display = document.getElementById("display")!;
 const $target = document.getElementById("target")!;
 const $toggle = document.getElementById("toggle")!;
+const $continue = document.getElementById("continue") as HTMLButtonElement;
+const $taskList = document.getElementById("task-list")!;
 const $list = document.getElementById("log-list")!;
 const $logPanel = document.getElementById("log-panel")!;
 const $logToggle = document.getElementById("log-toggle")!;
@@ -96,20 +106,30 @@ function renderControls() {
   } else {
     $target.textContent = `${nextTargetMin} min`;
   }
+  // Continue only makes sense when stopped and the title already has logged time
+  // to resume from; otherwise Start covers it.
+  const base = sumLoggedMs(entries, $title.value, Date.now());
+  $continue.hidden = tracking || base <= 0;
 }
 
 function renderDisplay() {
   const open = openSegment(entries);
   const now = Date.now();
-  const ms = open ? now - open.start : 0;
+  const base = open?.baseMs ?? 0;
+  const ms = open ? base + (now - open.start) : 0;
   $display.textContent = formatDuration(ms);
-  const over = !!open && open.kind === "tracked" && targetReached(open.start, open.targetMin, now);
+  const over =
+    !!open && open.kind === "tracked" && targetReached(open.start, open.targetMin, now, base);
   $display.classList.toggle("overtime", over);
   $display.classList.toggle("untracked", !!open && open.kind === "untracked");
 }
 
 function renderList() {
   $list.innerHTML = renderLog(entries, Date.now());
+}
+
+function renderTasksList() {
+  $taskList.innerHTML = renderTasks(recents);
 }
 
 /** Mirror the title input into the static line shown above the clock. */
@@ -203,9 +223,10 @@ async function persist(retries = 5): Promise<void> {
     dirty = false;
   } catch (err) {
     if (err instanceof ConflictError && retries > 0) {
-      entries = normalizeOpen(
-        mergeEntries(err.doc.entries, entries),
-        Date.now(),
+      const now = Date.now();
+      entries = coalesceUntracked(
+        normalizeOpen(mergeEntries(err.doc.entries, entries), now),
+        now,
       );
       version = err.doc.version;
       renderControls();
@@ -236,12 +257,16 @@ async function refresh() {
   try {
     const doc = await fetchDay(date);
     const now = Date.now();
-    const merged = normalizeOpen(mergeEntries(doc.entries, entries), now);
+    const merged = coalesceUntracked(
+      normalizeOpen(mergeEntries(doc.entries, entries), now),
+      now,
+    );
     const localHasChanges =
       entriesSignature(merged) !== entriesSignature(doc.entries);
     entries = merged;
     version = doc.version;
     const r = reconcile(entries, now);
+    entries = coalesceUntracked(entries, now);
     renderControls();
     renderList();
     renderDisplay();
@@ -254,15 +279,15 @@ async function refresh() {
 function tick() {
   renderDisplay();
   const open = openSegment(entries);
-  if (
-    open &&
-    open.kind === "tracked" &&
-    !notified &&
-    targetReached(open.start, open.targetMin, Date.now())
-  ) {
-    notified = true;
-    void finishTracked();
-    return;
+  if (open && open.kind === "tracked" && !notified) {
+    const tEnd = targetEndMs(open.start, open.targetMin, open.baseMs ?? 0);
+    // Fire only when the target boundary falls within this segment's run. A
+    // continue that begins already past target (tEnd <= start) runs as overtime.
+    if (tEnd > open.start && Date.now() >= tEnd) {
+      notified = true;
+      void finishTracked();
+      return;
+    }
   }
   // Live-update only the open entry's duration (don't clobber edit forms).
   if (open) {
@@ -277,7 +302,7 @@ function tick() {
 async function finishTracked() {
   const open = openSegment(entries);
   if (!open || open.kind !== "tracked") return;
-  const tEnd = targetEndMs(open.start, open.targetMin);
+  const tEnd = targetEndMs(open.start, open.targetMin, open.baseMs ?? 0);
   open.end = tEnd;
   open.updated = Date.now();
   notifyTargetReached(open.title);
@@ -294,12 +319,43 @@ async function onToggle() {
   } else {
     notified = false;
     startTracked(entries, now, $title.value, nextTargetMin);
+    void recordRecent($title.value);
     await ensurePermission();
   }
   renderControls();
   renderDisplay();
   renderList();
   await persist();
+}
+
+/** Resume the title in the box, counting up from its total logged time today. */
+async function onContinue() {
+  if (isTracking()) return;
+  const now = Date.now();
+  const title = $title.value;
+  const base = sumLoggedMs(entries, title, now);
+  notified = false;
+  continueTracked(entries, now, title, nextTargetMin, base);
+  void recordRecent(title);
+  await ensurePermission();
+  renderControls();
+  renderDisplay();
+  renderList();
+  await persist();
+}
+
+/** Record a title as recently used (skips the pinned "Break") and refresh the list. */
+async function recordRecent(title: string): Promise<void> {
+  const t = title.trim();
+  if (!t || t.toLowerCase() === "break") return;
+  recents = [t, ...recents.filter((x) => x.toLowerCase() !== t.toLowerCase())].slice(0, 15);
+  renderTasksList();
+  try {
+    recents = await pushRecent(t);
+    renderTasksList();
+  } catch (err) {
+    console.error("recents push failed", err);
+  }
 }
 
 function onAdjust(delta: number) {
@@ -388,6 +444,12 @@ function onEditField(li: HTMLElement, field: "title" | "description") {
     const value = input.value.trim();
     if (field === "title") {
       entry.title = value || (entry.kind === "untracked" ? "Untracked" : "Untitled");
+      // Naming a finished untracked gap claims it as real work: drop the
+      // untracked styling. The open segment keeps its kind (a 0-target tracked
+      // session would finalize instantly).
+      if (entry.kind === "untracked" && entry.end !== null && value) {
+        entry.kind = "tracked";
+      }
     } else {
       entry.description = value || undefined;
     }
@@ -408,8 +470,22 @@ function onEditField(li: HTMLElement, field: "title" | "description") {
 
 function wireEvents() {
   $toggle.addEventListener("click", () => void onToggle());
+  $continue.addEventListener("click", () => void onContinue());
   document.querySelectorAll<HTMLButtonElement>(".adjusts button").forEach((b) => {
     b.addEventListener("click", () => onAdjust(Number(b.dataset.delta)));
+  });
+  // Quick-pick a recent title (or "Break"); sets the box, doesn't rename a run.
+  $taskList.addEventListener("click", (e) => {
+    const btn = (e.target as HTMLElement).closest(".task-pick") as HTMLElement;
+    if (!btn) return;
+    $title.value = btn.dataset.title ?? "";
+    renderTitle();
+    renderControls();
+  });
+  // Keep Continue's visibility in sync as the title is typed.
+  $title.addEventListener("input", () => {
+    renderTitle();
+    renderControls();
   });
   $list.addEventListener("click", (e) => {
     const btn = (e.target as HTMLElement).closest(".field-edit") as HTMLElement;
@@ -446,24 +522,38 @@ async function init() {
   }
   entries = readCache(date);
   version = readCachedVersion(date);
+  recents = readCachedRecents();
   const local = reconcile(entries, Date.now());
+  entries = coalesceUntracked(entries, Date.now());
 
   wireEvents();
   applyMode();
   renderControls();
   renderDisplay();
   renderList();
+  renderTasksList();
   if (local.changed) void persist();
+
+  fetchRecents()
+    .then((t) => {
+      recents = t;
+      renderTasksList();
+    })
+    .catch((err) => console.error("recents fetch failed", err));
 
   try {
     const doc = await fetchDay(date);
     const now = Date.now();
-    const merged = normalizeOpen(mergeEntries(doc.entries, entries), now);
+    const merged = coalesceUntracked(
+      normalizeOpen(mergeEntries(doc.entries, entries), now),
+      now,
+    );
     const localHasChanges =
       entriesSignature(merged) !== entriesSignature(doc.entries);
     entries = merged;
     version = doc.version;
     const r = reconcile(entries, now);
+    entries = coalesceUntracked(entries, now);
     renderControls();
     renderList();
     renderDisplay();

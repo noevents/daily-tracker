@@ -9,6 +9,8 @@ import {
   reconcile,
   mergeEntries,
   normalizeOpen,
+  coalesceUntracked,
+  sumLoggedMs,
 } from "../src/log";
 import type { Entry } from "../src/types";
 
@@ -139,6 +141,74 @@ describe("normalizeOpen", () => {
     const b = mk("b", 10 * MIN, 1, { end: null });
     const result = normalizeOpen([a, b], 99 * MIN);
     expect(result.find((e) => e.id === "b")!.end).toBeNull();
+  });
+});
+
+function untracked(id: string, start: number, end: number | null, over: Partial<Entry> = {}): Entry {
+  return { id, start, end, title: "Untracked", targetMin: 0, kind: "untracked", updated: 1, ...over };
+}
+
+describe("coalesceUntracked", () => {
+  it("merges consecutive plain untracked into one, keeping the earliest id", () => {
+    const result = coalesceUntracked(
+      [untracked("a", 0, 10 * MIN), untracked("b", 10 * MIN, 25 * MIN)],
+      99 * MIN,
+    );
+    expect(result).toHaveLength(1);
+    expect(result[0].id).toBe("a");
+    expect(result[0].start).toBe(0);
+    expect(result[0].end).toBe(25 * MIN);
+  });
+
+  it("extends into an open trailing untracked (end stays null)", () => {
+    const result = coalesceUntracked(
+      [untracked("a", 0, 10 * MIN), untracked("b", 10 * MIN, null)],
+      99 * MIN,
+    );
+    expect(result).toHaveLength(1);
+    expect(result[0].id).toBe("a");
+    expect(result[0].end).toBeNull();
+  });
+
+  it("does not merge across a tracked entry", () => {
+    const tracked = mk("t", 10 * MIN, 1, { end: 20 * MIN });
+    const result = coalesceUntracked(
+      [untracked("a", 0, 10 * MIN), tracked, untracked("b", 20 * MIN, null)],
+      99 * MIN,
+    );
+    expect(result.map((e) => e.id)).toEqual(["a", "t", "b"]);
+  });
+
+  it("preserves an untracked block that carries a description", () => {
+    const result = coalesceUntracked(
+      [untracked("a", 0, 10 * MIN, { description: "lunch" }), untracked("b", 10 * MIN, null)],
+      99 * MIN,
+    );
+    expect(result.map((e) => e.id)).toEqual(["a", "b"]);
+  });
+
+  it("does not merge a renamed (tracked) block back in", () => {
+    const renamed = untracked("a", 0, 10 * MIN, { kind: "tracked", title: "email" });
+    const result = coalesceUntracked([renamed, untracked("b", 10 * MIN, null)], 99 * MIN);
+    expect(result.map((e) => e.id)).toEqual(["a", "b"]);
+  });
+});
+
+describe("sumLoggedMs", () => {
+  it("sums logged ms across tracked entries with the matching title", () => {
+    const entries: Entry[] = [
+      mk("a", 0, 1, { title: "write", end: 10 * MIN }),
+      untracked("u", 10 * MIN, 12 * MIN),
+      mk("b", 12 * MIN, 1, { title: "write", end: 17 * MIN }),
+      mk("c", 17 * MIN, 1, { title: "other", end: 20 * MIN }),
+    ];
+    expect(sumLoggedMs(entries, "write", 99 * MIN)).toBe(15 * MIN);
+  });
+
+  it("counts the open entry up to now and ignores blank titles", () => {
+    const entries: Entry[] = [mk("a", 0, 1, { title: "write", end: null })];
+    expect(sumLoggedMs(entries, "write", 5 * MIN)).toBe(5 * MIN);
+    expect(sumLoggedMs(entries, "  ", 5 * MIN)).toBe(0);
   });
 });
 
