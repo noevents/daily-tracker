@@ -429,10 +429,6 @@ body.gesture-mode .target-row .adjusts,
 body.gesture-mode .toggle {
   display: none;
 }
-/* Gesture mode is a minimal full-screen focus; the task list steps aside. */
-body.gesture-mode .tasks-panel {
-  display: none;
-}
 body.gesture-mode .target-row {
   justify-content: center;
   position: relative;
@@ -568,6 +564,11 @@ body.gesture-mode.scrubbing .wheel {
   .log-toggle {
     display: block;
   }
+  /* Log is now an overlay, so it no longer occupies a grid track — give the
+     whole row to .main, which keeps its own timer | tasks split. */
+  #app {
+    grid-template-columns: 1fr;
+  }
   .timer-panel {
     min-height: 100vh;
     gap: 14px;
@@ -598,11 +599,8 @@ body.gesture-mode.scrubbing .wheel {
  * with the task column and the adjust controls tightened to fit.
  */
 @media (max-width: 900px) {
-  /* Log drops out of the grid (overlay drawer); main takes the full width and
-     keeps its own timer | tasks split, just with a tighter task column. */
-  #app {
-    grid-template-columns: 1fr;
-  }
+  /* Narrow screens: keep the timer | tasks split but tighten the task column
+     and the adjust controls so the timer column stays usable. */
   .main {
     grid-template-columns: minmax(0, 1fr) clamp(96px, 26vw, 200px);
   }
@@ -623,67 +621,38 @@ body.gesture-mode.scrubbing .wheel {
 }
 
 /*
- * Landscape phone beside you (e.g. iPhone X, 812×375): make the timer fill the
- * whole screen with large, easy-to-hit controls. Sizes scale with the viewport
- * so the clock stays as big as possible without overflowing.
+ * Short viewport (landscape phone, e.g. 812×375): the layout stays two-column
+ * (timer | tasks); we only shrink the clock and controls so everything fits the
+ * limited height without scrolling.
  */
 @media (orientation: landscape) and (max-height: 600px) {
-  /* Reclaim the whole screen for the timer; the task list steps aside here. */
-  #app {
-    display: block;
-  }
-  .main {
-    display: block;
-  }
-  .tasks-panel {
-    display: none;
-  }
   .timer-panel {
-    height: 100vh;
-    width: 100vw;
-    justify-content: space-evenly;
-    gap: clamp(6px, 1.5vh, 14px);
-    padding: max(12px, env(safe-area-inset-top))
-      max(16px, env(safe-area-inset-right))
-      max(12px, env(safe-area-inset-bottom))
-      max(56px, env(safe-area-inset-left));
-  }
-  .target-row {
-    gap: clamp(10px, 3vw, 28px);
-  }
-  .title-input {
-    font-size: clamp(14px, 3.2vh, 20px);
-    padding: clamp(6px, 1.6vh, 12px);
+    min-height: 100vh;
+    justify-content: center;
+    gap: clamp(6px, 1.6vh, 12px);
+    padding: max(10px, env(safe-area-inset-top))
+      max(12px, env(safe-area-inset-right))
+      max(10px, env(safe-area-inset-bottom)) 12px;
   }
   .display {
-    font-size: min(22vw, 38vh);
+    font-size: min(18vw, 30vh);
     line-height: 1;
   }
   .target,
   body.gesture-mode .wheel {
-    font-size: clamp(22px, 5vh, 32px);
+    font-size: clamp(20px, 5vh, 30px);
   }
-  .adjusts {
-    gap: clamp(6px, 1.6vw, 14px);
+  .title-input {
+    font-size: clamp(13px, 3.2vh, 18px);
+    padding: clamp(5px, 1.4vh, 10px);
   }
   .adjusts button {
-    font-size: clamp(14px, 3.4vh, 20px);
-    padding: clamp(8px, 2.4vh, 16px) clamp(10px, 2.2vw, 22px);
-    min-width: clamp(48px, 9vw, 84px);
-  }
-  /* The action row sits clear of the adjust buttons, so a thumb reaching for
-     −/+ near the screen edges can't clip Start/Continue by accident. */
-  .action-row {
-    margin-top: clamp(8px, 2vh, 18px);
+    font-size: clamp(13px, 3.2vh, 18px);
+    padding: clamp(6px, 2vh, 12px) clamp(8px, 1.6vw, 14px);
+    min-width: clamp(40px, 8vw, 64px);
   }
   .toggle {
-    font-size: clamp(18px, 4.5vh, 28px);
-    padding: clamp(12px, 3vh, 22px) 0;
-  }
-  /* Keep the focus on the timer; the test button stays small and tucked away. */
-  #test-notif {
-    position: fixed;
-    top: 12px;
-    right: 12px;
+    font-size: clamp(15px, 3.6vh, 22px);
+    padding: clamp(8px, 2.4vh, 16px) 0;
   }
 }
