@@ -69,7 +69,7 @@ body {
   display: none;
   position: fixed;
   top: 12px;
-  right: 12px;
+  left: 90px;
   z-index: 20;
   background: var(--panel);
   color: var(--muted);
