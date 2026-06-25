@@ -37,7 +37,14 @@ body {
 
 #app {
   display: grid;
-  grid-template-columns: 340px minmax(0, 1fr) 220px;
+  grid-template-columns: 340px minmax(0, 1fr);
+  min-height: 100vh;
+}
+
+/* The two-column main area beside the log: timer (larger) + task list. */
+.main {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 220px;
   min-height: 100vh;
 }
 
@@ -591,7 +598,12 @@ body.gesture-mode.scrubbing .wheel {
  * with the task column and the adjust controls tightened to fit.
  */
 @media (max-width: 900px) {
+  /* Log drops out of the grid (overlay drawer); main takes the full width and
+     keeps its own timer | tasks split, just with a tighter task column. */
   #app {
+    grid-template-columns: 1fr;
+  }
+  .main {
     grid-template-columns: minmax(0, 1fr) clamp(96px, 26vw, 200px);
   }
   .tasks-panel {
@@ -618,6 +630,9 @@ body.gesture-mode.scrubbing .wheel {
 @media (orientation: landscape) and (max-height: 600px) {
   /* Reclaim the whole screen for the timer; the task list steps aside here. */
   #app {
+    display: block;
+  }
+  .main {
     display: block;
   }
   .tasks-panel {

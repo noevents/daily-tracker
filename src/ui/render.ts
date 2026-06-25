@@ -105,6 +105,7 @@ export function appShell(): string {
       <h2>Today</h2>
       <ul id="log-list"></ul>
     </aside>
+    <main class="main">
     <section class="timer-panel">
       <div id="title-display" class="timer-title"></div>
       <div id="display" class="display">00:00</div>
@@ -133,5 +134,6 @@ export function appShell(): string {
     <aside class="tasks-panel" id="tasks-panel">
       <h2>Tasks</h2>
       <ul id="task-list" class="task-list"></ul>
-    </aside>`;
+    </aside>
+    </main>`;
 }
