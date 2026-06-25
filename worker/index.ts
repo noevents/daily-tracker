@@ -1,5 +1,5 @@
 import type { DayDoc, Entry } from "../src/types";
-import { readDay, writeDay, type Env } from "./store";
+import { readDay, writeDay, readRecents, pushRecent, type Env } from "./store";
 
 // Single user for now; tokens map to userIds when this goes multi-user.
 const USER_ID = "me";
@@ -56,6 +56,26 @@ async function handleApi(req: Request, env: Env, url: URL): Promise<Response> {
       };
       await writeDay(env, USER_ID, date, doc);
       return json({ version: doc.version });
+    }
+    return json({ error: "method not allowed" }, 405);
+  }
+
+  if (url.pathname === "/api/recents") {
+    if (req.method === "GET") {
+      return json({ titles: await readRecents(env, USER_ID) });
+    }
+    if (req.method === "POST") {
+      let body: unknown;
+      try {
+        body = await req.json();
+      } catch {
+        return json({ error: "invalid json" }, 400);
+      }
+      const { title } = (body ?? {}) as { title?: unknown };
+      if (typeof title !== "string") {
+        return json({ error: "expected { title }" }, 400);
+      }
+      return json({ titles: await pushRecent(env, USER_ID, title) });
     }
     return json({ error: "method not allowed" }, 405);
   }

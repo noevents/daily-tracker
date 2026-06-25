@@ -72,6 +72,63 @@ export function startTracked(
 }
 
 /**
+ * Convert the open untracked segment in place to a tracked session: the gap
+ * that was ticking becomes logged work under `title`, keeping its start so the
+ * timer continues from the already-elapsed time. Returns the entry, or
+ * undefined if there is no open untracked segment to continue.
+ */
+export function continueAsTracked(
+  entries: Entry[],
+  title: string,
+  targetMin: number,
+  now: number,
+): Entry | undefined {
+  const open = openSegment(entries);
+  if (!open || open.kind !== "untracked") return undefined;
+  open.kind = "tracked";
+  open.title = title.trim() || "Untitled";
+  open.targetMin = targetMin;
+  open.updated = now;
+  return open;
+}
+
+/** An untracked gap with no user-supplied title or note — safe to merge. */
+function isPlainUntracked(e: Entry): boolean {
+  return (
+    e.kind === "untracked" &&
+    !e.description &&
+    (e.title === "Untracked" || !e.title)
+  );
+}
+
+/**
+ * Merge runs of contiguous plain-untracked entries into one block. A refresh or
+ * a second device each begins its own untracked segment, so the timeline
+ * accumulates back-to-back gaps; this collapses them (earliest id and start,
+ * latest end) so untracked time reads as a single span.
+ */
+export function coalesceUntracked(entries: Entry[], now: number): Entry[] {
+  const sorted = [...entries].sort((a, b) => a.start - b.start);
+  const out: Entry[] = [];
+  for (const e of sorted) {
+    const prev = out[out.length - 1];
+    if (
+      prev &&
+      isPlainUntracked(prev) &&
+      isPlainUntracked(e) &&
+      prev.end !== null &&
+      prev.end >= e.start
+    ) {
+      prev.end = e.end === null ? null : Math.max(prev.end, e.end);
+      prev.updated = now;
+    } else {
+      out.push(e);
+    }
+  }
+  return out;
+}
+
+/**
  * Merge two entry sets by id, newest `updated` wins. Used to reconcile a
  * locally-edited day with the server copy without clobbering either side.
  */

@@ -11,6 +11,41 @@ export function dayKey(userId: string, date: string): string {
   return `log:${userId}:${date}`;
 }
 
+/** KV key for a user's recent task titles (most-recent-first). */
+export function recentsKey(userId: string): string {
+  return `recents:${userId}`;
+}
+
+const RECENTS_CAP = 15;
+
+export async function readRecents(env: Env, userId: string): Promise<string[]> {
+  const raw = await env.TRACKER_KV.get(recentsKey(userId));
+  if (!raw) return [];
+  try {
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? (parsed as string[]).filter((t) => typeof t === "string") : [];
+  } catch {
+    return [];
+  }
+}
+
+/** Prepend `title`, drop duplicates (case-insensitive), cap the list, persist. */
+export async function pushRecent(
+  env: Env,
+  userId: string,
+  title: string,
+): Promise<string[]> {
+  const t = title.trim();
+  const current = await readRecents(env, userId);
+  if (!t) return current;
+  const next = [t, ...current.filter((x) => x.toLowerCase() !== t.toLowerCase())].slice(
+    0,
+    RECENTS_CAP,
+  );
+  await env.TRACKER_KV.put(recentsKey(userId), JSON.stringify(next));
+  return next;
+}
+
 function emptyDoc(): DayDoc {
   return { version: 0, updatedAt: 0, entries: [] };
 }

@@ -48,14 +48,12 @@ function renderEntry(e: Entry, now: number): string {
   const desc = e.description
     ? `<p class="entry-desc">${escapeHtml(e.description)}</p>`
     : "";
-  const badge =
-    e.kind === "untracked" ? `<span class="badge">untracked</span>` : "";
   const live = open ? `<span class="live" title="in progress"></span>` : "";
   const endLabel = open ? "now" : timeOfDay(resolveEnd(e, now));
   return `
     <li class="${cls}" data-id="${e.id}">
       <div class="entry-head">
-        <span class="entry-title">${live}<button class="field-edit" data-field="title" type="button">${escapeHtml(e.title)}</button> ${badge}</span>
+        <span class="entry-title">${live}<button class="field-edit" data-field="title" type="button">${escapeHtml(e.title)}</button></span>
         <span class="entry-time">${timeOfDay(e.start)}–${endLabel} · <span class="entry-dur">${dur}</span></span>
       </div>
       ${desc}
@@ -82,6 +80,23 @@ export function editForm(value: string, multiline: boolean): string {
     </form>`;
 }
 
+/**
+ * Render the task quick-pick list: a pinned "Break" plus recent titles. Each is
+ * a button that sets the timer title when clicked. Titles ellipsis-truncate.
+ */
+export function renderTasks(titles: string[]): string {
+  const items = [
+    `<li><button class="task-pick task-pick--pinned" data-title="Break" type="button">Break</button></li>`,
+    ...titles
+      .filter((t) => t.trim() && t.toLowerCase() !== "break")
+      .map(
+        (t) =>
+          `<li><button class="task-pick" data-title="${escapeHtml(t)}" type="button">${escapeHtml(t)}</button></li>`,
+      ),
+  ];
+  return items.join("");
+}
+
 export function appShell(): string {
   return `
     <button id="log-toggle" class="log-toggle" type="button">☰ Log</button>
@@ -90,6 +105,7 @@ export function appShell(): string {
       <h2>Today</h2>
       <ul id="log-list"></ul>
     </aside>
+    <main class="main">
     <section class="timer-panel">
       <div id="title-display" class="timer-title"></div>
       <div id="display" class="display">00:00</div>
@@ -110,6 +126,14 @@ export function appShell(): string {
           <button data-delta="10" type="button">+10</button>
         </div>
       </div>
-      <button id="toggle" class="toggle" type="button">Start</button>
-    </section>`;
+      <div class="action-row">
+        <button id="toggle" class="toggle" type="button">Start</button>
+        <button id="continue" class="toggle continue" type="button">Continue</button>
+      </div>
+    </section>
+    <aside class="tasks-panel" id="tasks-panel">
+      <h2>Tasks</h2>
+      <ul id="task-list" class="task-list"></ul>
+    </aside>
+    </main>`;
 }

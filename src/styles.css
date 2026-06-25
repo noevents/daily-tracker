@@ -37,7 +37,14 @@ body {
 
 #app {
   display: grid;
-  grid-template-columns: 340px 1fr;
+  grid-template-columns: 340px minmax(0, 1fr);
+  min-height: 100vh;
+}
+
+/* The two-column main area beside the log: timer (larger) + task list. */
+.main {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 220px;
   min-height: 100vh;
 }
 
@@ -62,7 +69,7 @@ body {
   display: none;
   position: fixed;
   top: 12px;
-  right: 12px;
+  left: 90px;
   z-index: 20;
   background: var(--panel);
   color: var(--muted);
@@ -80,12 +87,57 @@ body {
   max-height: 100vh;
 }
 
-.log-panel h2 {
+.log-panel h2,
+.tasks-panel h2 {
   margin: 0 0 12px;
   font-size: 14px;
   text-transform: uppercase;
   letter-spacing: 0.08em;
   color: var(--muted);
+}
+
+/* Right column: quick-pick list of recent task titles. */
+.tasks-panel {
+  border-left: 1px solid var(--line);
+  padding: 16px;
+  overflow-y: auto;
+  max-height: 100vh;
+}
+
+.task-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.task-pick {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--text);
+  font: inherit;
+  font-size: 14px;
+  text-align: left;
+  padding: 10px 12px;
+  cursor: pointer;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.task-pick:hover {
+  border-color: var(--accent);
+}
+
+.task-pick--pinned {
+  color: var(--muted);
+  font-weight: 600;
 }
 
 #log-list {
@@ -160,15 +212,6 @@ body {
 @keyframes pulse {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.3; }
-}
-
-.badge {
-  font-size: 10px;
-  text-transform: uppercase;
-  color: var(--untracked-line);
-  border: 1px solid var(--untracked-line);
-  border-radius: 4px;
-  padding: 1px 4px;
 }
 
 .entry-desc {
@@ -250,6 +293,17 @@ body {
   border-color: var(--accent);
 }
 
+/* Flagged when Start/Continue is pressed with an empty title. */
+.title-input.error {
+  border-color: #ff5b5b;
+  animation: shake 0.3s ease;
+}
+
+@keyframes shake {
+  25% { transform: translateX(-5px); }
+  75% { transform: translateX(5px); }
+}
+
 /* Static title shown above the clock in gesture mode. Hidden otherwise. */
 .timer-title {
   display: none;
@@ -290,8 +344,9 @@ body {
 
 .target {
   color: var(--muted);
-  font-size: 44px;
+  font-size: 28px;
   font-weight: 600;
+  white-space: nowrap;
   transition: opacity 0.18s ease;
 }
 
@@ -316,8 +371,17 @@ body {
   border-color: var(--accent);
 }
 
-.toggle {
+/* Start sits beside Continue; the row owns width + top spacing. */
+.action-row {
+  display: flex;
+  gap: 10px;
   width: var(--col-w);
+  /* Keep clear air around the actions so an adjust-button tap can't land here. */
+  margin-top: 8px;
+}
+
+.toggle {
+  flex: 1;
   background: var(--accent);
   border: none;
   border-radius: 10px;
@@ -326,12 +390,27 @@ body {
   font-weight: 700;
   padding: 14px 0;
   cursor: pointer;
-  /* Keep clear air around Start so an adjust-button tap can't land here. */
-  margin-top: 8px;
 }
 
 .toggle.running {
   background: var(--overtime);
+}
+
+/* Continue is the secondary action: outlined, not filled, equal width to Start. */
+.continue {
+  flex: 1;
+  background: var(--panel);
+  color: var(--text);
+  border: 1px solid var(--line);
+}
+
+.continue:hover:not(:disabled) {
+  border-color: var(--accent);
+}
+
+.continue:disabled {
+  opacity: 0.45;
+  cursor: default;
 }
 
 .ghost {
@@ -438,7 +517,7 @@ body.gesture-mode .wheel {
   inset: 0;
   margin: auto 0;
   height: 1.2em;
-  font-size: 44px;
+  font-size: 28px;
   overflow: hidden;
   opacity: 0;
   pointer-events: none;
@@ -488,15 +567,18 @@ body.gesture-mode.scrubbing .wheel {
 }
 
 /*
- * Mobile + landscape phone: hide the log by default and make the timer the
- * full-screen focus. The log slides in as an overlay drawer via the toggle.
+ * Mobile + landscape phone: the log stops being a fixed column and slides in as
+ * an overlay drawer via the toggle. (Pulled out of the grid, so it no longer
+ * occupies a track.)
  */
 @media (max-width: 900px), (orientation: landscape) and (max-height: 600px) {
-  #app {
-    display: block;
-  }
   .log-toggle {
     display: block;
+  }
+  /* Log is now an overlay, so it no longer occupies a grid track — give the
+     whole row to .main, which keeps its own timer | tasks split. */
+  #app {
+    grid-template-columns: 1fr;
   }
   .timer-panel {
     min-height: 100vh;
@@ -523,55 +605,65 @@ body.gesture-mode.scrubbing .wheel {
 }
 
 /*
- * Landscape phone beside you (e.g. iPhone X, 812×375): make the timer fill the
- * whole screen with large, easy-to-hit controls. Sizes scale with the viewport
- * so the clock stays as big as possible without overflowing.
+ * Portrait phone / narrow tablet: keep the two-column main layout — timer
+ * (larger) on the left, task list on the right — same shape as desktop, just
+ * with the task column and the adjust controls tightened to fit.
+ */
+@media (max-width: 900px) {
+  /* Narrow screens: keep the timer | tasks split but tighten the task column
+     and the adjust controls so the timer column stays usable. */
+  .main {
+    grid-template-columns: minmax(0, 1fr) clamp(96px, 26vw, 200px);
+  }
+  .tasks-panel {
+    padding: 16px 10px;
+  }
+  .target-row {
+    gap: 8px;
+  }
+  .adjusts {
+    gap: 6px;
+  }
+  .adjusts button {
+    min-width: 38px;
+    padding: 9px 7px;
+    font-size: 14px;
+  }
+}
+
+/*
+ * Short viewport (landscape phone, e.g. 812×375): the layout stays two-column
+ * (timer | tasks); we only shrink the clock and controls so everything fits the
+ * limited height without scrolling.
  */
 @media (orientation: landscape) and (max-height: 600px) {
   .timer-panel {
-    height: 100vh;
-    width: 100vw;
-    justify-content: space-evenly;
-    gap: clamp(6px, 1.5vh, 14px);
-    padding: max(12px, env(safe-area-inset-top))
-      max(16px, env(safe-area-inset-right))
-      max(12px, env(safe-area-inset-bottom))
-      max(56px, env(safe-area-inset-left));
-  }
-  .target-row {
-    gap: clamp(10px, 3vw, 28px);
-  }
-  .title-input {
-    font-size: clamp(14px, 3.2vh, 20px);
-    padding: clamp(6px, 1.6vh, 12px);
+    min-height: 100vh;
+    justify-content: center;
+    gap: clamp(6px, 1.6vh, 12px);
+    padding: max(10px, env(safe-area-inset-top))
+      max(12px, env(safe-area-inset-right))
+      max(10px, env(safe-area-inset-bottom)) 12px;
   }
   .display {
-    font-size: min(22vw, 38vh);
+    font-size: min(18vw, 30vh);
     line-height: 1;
   }
   .target,
   body.gesture-mode .wheel {
-    font-size: clamp(32px, 7.2vh, 48px);
+    font-size: clamp(20px, 5vh, 30px);
   }
-  .adjusts {
-    gap: clamp(6px, 1.6vw, 14px);
+  .title-input {
+    font-size: clamp(13px, 3.2vh, 18px);
+    padding: clamp(5px, 1.4vh, 10px);
   }
   .adjusts button {
-    font-size: clamp(14px, 3.4vh, 20px);
-    padding: clamp(8px, 2.4vh, 16px) clamp(10px, 2.2vw, 22px);
-    min-width: clamp(48px, 9vw, 84px);
+    font-size: clamp(13px, 3.2vh, 18px);
+    padding: clamp(6px, 2vh, 12px) clamp(8px, 1.6vw, 14px);
+    min-width: clamp(40px, 8vw, 64px);
   }
-  /* Start sits alone on its own row, far from the adjust buttons, so a
-     thumb reaching for −/+ near the screen edges can't clip it by accident. */
   .toggle {
-    font-size: clamp(18px, 4.5vh, 28px);
-    padding: clamp(12px, 3vh, 22px) 0;
-    margin-top: clamp(8px, 2vh, 18px);
-  }
-  /* Keep the focus on the timer; the test button stays small and tucked away. */
-  #test-notif {
-    position: fixed;
-    top: 12px;
-    right: 12px;
+    font-size: clamp(15px, 3.6vh, 22px);
+    padding: clamp(8px, 2.4vh, 16px) 0;
   }
 }
