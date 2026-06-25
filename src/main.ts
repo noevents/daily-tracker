@@ -66,6 +66,12 @@ let nextTargetMin = DEFAULT_TARGET_MIN;
 let notified = false;
 const POLL_MS = 20_000;
 const WRITE_DEBOUNCE_MS = 1_500;
+const TICK_MS = 1_000;
+// Last text written to the clock and the open entry's duration; lets the tick
+// skip DOM writes (and the layout they force) when the visible value is unchanged.
+let lastClockText = "";
+let $openDur: Element | null = null;
+let tickTimer: number | null = null;
 
 const app = document.getElementById("app")!;
 app.innerHTML = appShell();
@@ -121,7 +127,11 @@ function renderDisplay() {
   const open = openSegment(entries);
   const now = Date.now();
   const ms = open ? now - open.start : 0;
-  $display.textContent = formatDuration(ms);
+  const text = formatDuration(ms);
+  if (text !== lastClockText) {
+    $display.textContent = text;
+    lastClockText = text;
+  }
   const over =
     !!open && open.kind === "tracked" && targetReached(open.start, open.targetMin, now);
   $display.classList.toggle("overtime", over);
@@ -130,6 +140,8 @@ function renderDisplay() {
 
 function renderList() {
   $list.innerHTML = renderLog(entries, Date.now());
+  // The list was rebuilt; the cached live-duration node is now stale.
+  $openDur = null;
 }
 
 function renderTasksList() {
@@ -297,11 +309,28 @@ function tick() {
     return;
   }
   // Live-update only the open entry's duration (don't clobber edit forms).
+  // Cache the node (renderList clears it) so we don't re-query every tick, and
+  // only write when the formatted value actually changed.
   if (open) {
-    const el = $list.querySelector(
-      `.entry[data-id="${open.id}"] .entry-dur`,
-    );
-    if (el) el.textContent = formatDuration(Date.now() - open.start);
+    if (!$openDur) {
+      $openDur = $list.querySelector(`.entry[data-id="${open.id}"] .entry-dur`);
+    }
+    if ($openDur) {
+      const text = formatDuration(Date.now() - open.start);
+      if ($openDur.textContent !== text) $openDur.textContent = text;
+    }
+  }
+}
+
+/** Run the per-second clock tick, but only while the tab is visible. */
+function startTick() {
+  if (tickTimer === null) tickTimer = window.setInterval(tick, TICK_MS);
+}
+
+function stopTick() {
+  if (tickTimer !== null) {
+    window.clearInterval(tickTimer);
+    tickTimer = null;
   }
 }
 
@@ -533,9 +562,16 @@ function wireEvents() {
   $title.addEventListener("blur", () => {
     if (document.body.classList.contains("title-open")) confirmTitle();
   });
-  // Pull remote changes when returning to the tab, plus a gentle poll.
+  // Pull remote changes when returning to the tab, plus a gentle poll. The
+  // clock tick is paused while hidden so a background tab burns no CPU.
   document.addEventListener("visibilitychange", () => {
-    if (!document.hidden) void refresh();
+    if (document.hidden) {
+      stopTick();
+    } else {
+      tick(); // immediate catch-up so the clock isn't stale on return
+      startTick();
+      void refresh();
+    }
   });
   window.addEventListener("focus", () => void refresh());
   window.setInterval(() => void refresh(), POLL_MS);
@@ -588,7 +624,7 @@ async function init() {
     console.error("initial fetch failed; using cache", err);
   }
 
-  window.setInterval(tick, 250);
+  if (!document.hidden) startTick();
 }
 
 void init();
