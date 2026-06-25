@@ -10,7 +10,7 @@ import {
   mergeEntries,
   normalizeOpen,
   coalesceUntracked,
-  sumLoggedMs,
+  continueAsTracked,
 } from "../src/log";
 import type { Entry } from "../src/types";
 
@@ -194,21 +194,25 @@ describe("coalesceUntracked", () => {
   });
 });
 
-describe("sumLoggedMs", () => {
-  it("sums logged ms across tracked entries with the matching title", () => {
-    const entries: Entry[] = [
-      mk("a", 0, 1, { title: "write", end: 10 * MIN }),
-      untracked("u", 10 * MIN, 12 * MIN),
-      mk("b", 12 * MIN, 1, { title: "write", end: 17 * MIN }),
-      mk("c", 17 * MIN, 1, { title: "other", end: 20 * MIN }),
-    ];
-    expect(sumLoggedMs(entries, "write", 99 * MIN)).toBe(15 * MIN);
+describe("continueAsTracked", () => {
+  it("converts the open untracked gap in place, keeping its start", () => {
+    const entries: Entry[] = [];
+    startUntracked(entries, 5 * MIN);
+    const e = continueAsTracked(entries, "  write spec ", 25, 12 * MIN);
+    expect(entries).toHaveLength(1); // same entry, not a new one
+    expect(e).toBe(openSegment(entries));
+    expect(e!.kind).toBe("tracked");
+    expect(e!.title).toBe("write spec");
+    expect(e!.targetMin).toBe(25);
+    expect(e!.start).toBe(5 * MIN); // start preserved → timer continues
+    expect(e!.end).toBeNull();
   });
 
-  it("counts the open entry up to now and ignores blank titles", () => {
-    const entries: Entry[] = [mk("a", 0, 1, { title: "write", end: null })];
-    expect(sumLoggedMs(entries, "write", 5 * MIN)).toBe(5 * MIN);
-    expect(sumLoggedMs(entries, "  ", 5 * MIN)).toBe(0);
+  it("does nothing when the open segment is not untracked", () => {
+    const entries: Entry[] = [];
+    startTracked(entries, 0, "task", 25);
+    expect(continueAsTracked(entries, "x", 25, 10 * MIN)).toBeUndefined();
+    expect(openSegment(entries)!.title).toBe("task");
   });
 });
 

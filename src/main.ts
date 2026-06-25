@@ -11,8 +11,7 @@ import {
   openSegment,
   startUntracked,
   startTracked,
-  continueTracked,
-  sumLoggedMs,
+  continueAsTracked,
   coalesceUntracked,
   reconcile,
   mergeEntries,
@@ -106,19 +105,25 @@ function renderControls() {
   } else {
     $target.textContent = `${nextTargetMin} min`;
   }
-  // Continue sits beside Start; it only acts while stopped (resumes the title's
-  // running total), so it's disabled — not hidden — while a session runs.
-  $continue.disabled = tracking;
+  // Continue claims the running untracked gap as tracked work. It's only valid
+  // while untracked time is ticking and the gap is still shorter than the
+  // target (otherwise there's nothing left of the target to count up to).
+  $continue.disabled = !canContinue(open);
+}
+
+/** Whether the Continue action is currently available for the open segment. */
+function canContinue(open = openSegment(entries)): boolean {
+  if (open?.kind !== "untracked") return false;
+  return Date.now() - open.start < nextTargetMin * 60_000;
 }
 
 function renderDisplay() {
   const open = openSegment(entries);
   const now = Date.now();
-  const base = open?.baseMs ?? 0;
-  const ms = open ? base + (now - open.start) : 0;
+  const ms = open ? now - open.start : 0;
   $display.textContent = formatDuration(ms);
   const over =
-    !!open && open.kind === "tracked" && targetReached(open.start, open.targetMin, now, base);
+    !!open && open.kind === "tracked" && targetReached(open.start, open.targetMin, now);
   $display.classList.toggle("overtime", over);
   $display.classList.toggle("untracked", !!open && open.kind === "untracked");
 }
@@ -278,15 +283,18 @@ async function refresh() {
 function tick() {
   renderDisplay();
   const open = openSegment(entries);
-  if (open && open.kind === "tracked" && !notified) {
-    const tEnd = targetEndMs(open.start, open.targetMin, open.baseMs ?? 0);
-    // Fire only when the target boundary falls within this segment's run. A
-    // continue that begins already past target (tEnd <= start) runs as overtime.
-    if (tEnd > open.start && Date.now() >= tEnd) {
-      notified = true;
-      void finishTracked();
-      return;
-    }
+  // Continue depends on the live untracked elapsed vs. target, so keep its
+  // enabled state current as the gap grows.
+  if (open?.kind === "untracked") $continue.disabled = !canContinue(open);
+  if (
+    open &&
+    open.kind === "tracked" &&
+    !notified &&
+    targetReached(open.start, open.targetMin, Date.now())
+  ) {
+    notified = true;
+    void finishTracked();
+    return;
   }
   // Live-update only the open entry's duration (don't clobber edit forms).
   if (open) {
@@ -301,7 +309,7 @@ function tick() {
 async function finishTracked() {
   const open = openSegment(entries);
   if (!open || open.kind !== "tracked") return;
-  const tEnd = targetEndMs(open.start, open.targetMin, open.baseMs ?? 0);
+  const tEnd = targetEndMs(open.start, open.targetMin);
   open.end = tEnd;
   open.updated = Date.now();
   notifyTargetReached(open.title);
@@ -316,6 +324,7 @@ async function onToggle() {
   if (isTracking()) {
     startUntracked(entries, now);
   } else {
+    if (!requireTitle()) return;
     notified = false;
     startTracked(entries, now, $title.value, nextTargetMin);
     void recordRecent($title.value);
@@ -327,20 +336,37 @@ async function onToggle() {
   await persist();
 }
 
-/** Resume the title in the box, counting up from its total logged time today. */
+/**
+ * Claim the running untracked gap as tracked work under the box title: the
+ * timer keeps counting from the elapsed time and the gap turns into a logged
+ * session. Only valid while untracked time ticks below the target.
+ */
 async function onContinue() {
-  if (isTracking()) return;
+  if (!canContinue()) return;
+  if (!requireTitle()) return;
   const now = Date.now();
-  const title = $title.value;
-  const base = sumLoggedMs(entries, title, now);
   notified = false;
-  continueTracked(entries, now, title, nextTargetMin, base);
-  void recordRecent(title);
+  continueAsTracked(entries, $title.value, nextTargetMin, now);
+  void recordRecent($title.value);
   await ensurePermission();
   renderControls();
   renderDisplay();
   renderList();
   await persist();
+}
+
+/** Require a non-empty title for Start/Continue; flag the input if missing. */
+function requireTitle(): boolean {
+  if ($title.value.trim()) return true;
+  if (gestureMode) {
+    openTitleSheet();
+  } else {
+    $title.classList.remove("error");
+    void $title.offsetWidth; // restart the shake animation
+    $title.classList.add("error");
+    $title.focus();
+  }
+  return false;
 }
 
 /** Record a title as recently used (skips the pinned "Break") and refresh the list. */
@@ -481,8 +507,9 @@ function wireEvents() {
     renderTitle();
     renderControls();
   });
-  // Keep Continue's visibility in sync as the title is typed.
+  // Keep Continue's state in sync as the title is typed, and clear any error.
   $title.addEventListener("input", () => {
+    $title.classList.remove("error");
     renderTitle();
     renderControls();
   });

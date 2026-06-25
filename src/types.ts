@@ -14,12 +14,6 @@ export interface Entry {
   targetMin: number;
   kind: EntryKind;
   description?: string;
-  /**
-   * Prior elapsed ms carried into a "continued" tracked session, so the timer
-   * counts up from a title's running total. 0/undefined for normal sessions.
-   * The entry's own logged duration is still `end - start`.
-   */
-  baseMs?: number;
   /** Last-modified epoch ms; drives newest-wins merge across devices. */
   updated?: number;
 }

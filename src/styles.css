@@ -293,6 +293,17 @@ body {
   border-color: var(--accent);
 }
 
+/* Flagged when Start/Continue is pressed with an empty title. */
+.title-input.error {
+  border-color: #ff5b5b;
+  animation: shake 0.3s ease;
+}
+
+@keyframes shake {
+  25% { transform: translateX(-5px); }
+  75% { transform: translateX(5px); }
+}
+
 /* Static title shown above the clock in gesture mode. Hidden otherwise. */
 .timer-title {
   display: none;

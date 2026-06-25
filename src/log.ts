@@ -72,28 +72,24 @@ export function startTracked(
 }
 
 /**
- * Close any open segment and begin an open tracked session that continues a
- * title's running total: the timer counts up from `baseMs` already-logged time.
+ * Convert the open untracked segment in place to a tracked session: the gap
+ * that was ticking becomes logged work under `title`, keeping its start so the
+ * timer continues from the already-elapsed time. Returns the entry, or
+ * undefined if there is no open untracked segment to continue.
  */
-export function continueTracked(
+export function continueAsTracked(
   entries: Entry[],
-  now: number,
   title: string,
   targetMin: number,
-  baseMs: number,
-): Entry {
-  const e = startTracked(entries, now, title, targetMin);
-  e.baseMs = baseMs;
-  return e;
-}
-
-/** Total logged ms for tracked entries whose title matches, open counted to `now`. */
-export function sumLoggedMs(entries: Entry[], title: string, now: number): number {
-  const t = title.trim();
-  if (!t) return 0;
-  return entries
-    .filter((e) => e.kind === "tracked" && e.title === t)
-    .reduce((sum, e) => sum + Math.max(0, resolveEnd(e, now) - e.start), 0);
+  now: number,
+): Entry | undefined {
+  const open = openSegment(entries);
+  if (!open || open.kind !== "untracked") return undefined;
+  open.kind = "tracked";
+  open.title = title.trim() || "Untitled";
+  open.targetMin = targetMin;
+  open.updated = now;
+  return open;
 }
 
 /** An untracked gap with no user-supplied title or note — safe to merge. */
@@ -199,10 +195,8 @@ export function reconcile(entries: Entry[], now: number): Reconciliation {
     return { resume: false, changed: true };
   }
   if (open.kind === "tracked") {
-    const tEnd = targetEndMs(open.start, open.targetMin, open.baseMs ?? 0);
-    // Finalize only when the target boundary lies within the segment's run; a
-    // continue that began already past target keeps running as overtime.
-    if (tEnd > open.start && now >= tEnd) {
+    const tEnd = targetEndMs(open.start, open.targetMin);
+    if (now >= tEnd) {
       open.end = tEnd;
       open.updated = now;
       startUntracked(entries, tEnd);
