@@ -326,8 +326,9 @@ body {
 
 .target {
   color: var(--muted);
-  font-size: 44px;
+  font-size: 28px;
   font-weight: 600;
+  white-space: nowrap;
   transition: opacity 0.18s ease;
 }
 
@@ -377,16 +378,21 @@ body {
   background: var(--overtime);
 }
 
-/* Continue is the secondary action: outlined, not filled. */
+/* Continue is the secondary action: outlined, not filled, equal width to Start. */
 .continue {
-  flex: 0 1 40%;
+  flex: 1;
   background: var(--panel);
   color: var(--text);
   border: 1px solid var(--line);
 }
 
-.continue:hover {
+.continue:hover:not(:disabled) {
   border-color: var(--accent);
+}
+
+.continue:disabled {
+  opacity: 0.45;
+  cursor: default;
 }
 
 .ghost {
@@ -497,7 +503,7 @@ body.gesture-mode .wheel {
   inset: 0;
   margin: auto 0;
   height: 1.2em;
-  font-size: 44px;
+  font-size: 28px;
   overflow: hidden;
   opacity: 0;
   pointer-events: none;
@@ -547,21 +553,17 @@ body.gesture-mode.scrubbing .wheel {
 }
 
 /*
- * Mobile + landscape phone: hide the log by default and make the timer the
- * full-screen focus. The log slides in as an overlay drawer via the toggle.
+ * Mobile + landscape phone: the log stops being a fixed column and slides in as
+ * an overlay drawer via the toggle. (Pulled out of the grid, so it no longer
+ * occupies a track.)
  */
 @media (max-width: 900px), (orientation: landscape) and (max-height: 600px) {
-  #app {
-    display: block;
-  }
   .log-toggle {
     display: block;
   }
   .timer-panel {
     min-height: 100vh;
     gap: 14px;
-    /* Leave room for the fixed task strip pinned to the bottom edge. */
-    padding-bottom: 76px;
   }
   .log-panel {
     position: fixed;
@@ -581,33 +583,30 @@ body.gesture-mode.scrubbing .wheel {
     transform: none;
     box-shadow: 0 0 40px rgba(0, 0, 0, 0.6);
   }
-  /* Task list becomes a horizontal, scrollable chip strip along the bottom. */
+}
+
+/*
+ * Portrait phone / narrow tablet: keep the two-column main layout — timer
+ * (larger) on the left, task list on the right — same shape as desktop, just
+ * with the task column and the adjust controls tightened to fit.
+ */
+@media (max-width: 900px) {
+  #app {
+    grid-template-columns: minmax(0, 1fr) clamp(96px, 26vw, 200px);
+  }
   .tasks-panel {
-    position: fixed;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    z-index: 14;
-    max-height: none;
-    border-left: none;
-    border-top: 1px solid var(--line);
-    background: var(--bg);
-    padding: 8px 12px max(8px, env(safe-area-inset-bottom));
-    overflow: visible;
+    padding: 16px 10px;
   }
-  .tasks-panel h2 {
-    display: none;
-  }
-  .task-list {
-    flex-direction: row;
-    overflow-x: auto;
+  .target-row {
     gap: 8px;
-    -webkit-overflow-scrolling: touch;
   }
-  .task-pick {
-    width: auto;
-    flex: 0 0 auto;
-    max-width: 150px;
+  .adjusts {
+    gap: 6px;
+  }
+  .adjusts button {
+    min-width: 38px;
+    padding: 9px 7px;
+    font-size: 14px;
   }
 }
 
@@ -617,6 +616,13 @@ body.gesture-mode.scrubbing .wheel {
  * so the clock stays as big as possible without overflowing.
  */
 @media (orientation: landscape) and (max-height: 600px) {
+  /* Reclaim the whole screen for the timer; the task list steps aside here. */
+  #app {
+    display: block;
+  }
+  .tasks-panel {
+    display: none;
+  }
   .timer-panel {
     height: 100vh;
     width: 100vw;
@@ -640,7 +646,7 @@ body.gesture-mode.scrubbing .wheel {
   }
   .target,
   body.gesture-mode .wheel {
-    font-size: clamp(32px, 7.2vh, 48px);
+    font-size: clamp(22px, 5vh, 32px);
   }
   .adjusts {
     gap: clamp(6px, 1.6vw, 14px);

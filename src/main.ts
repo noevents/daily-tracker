@@ -106,10 +106,9 @@ function renderControls() {
   } else {
     $target.textContent = `${nextTargetMin} min`;
   }
-  // Continue only makes sense when stopped and the title already has logged time
-  // to resume from; otherwise Start covers it.
-  const base = sumLoggedMs(entries, $title.value, Date.now());
-  $continue.hidden = tracking || base <= 0;
+  // Continue sits beside Start; it only acts while stopped (resumes the title's
+  // running total), so it's disabled — not hidden — while a session runs.
+  $continue.disabled = tracking;
 }
 
 function renderDisplay() {
